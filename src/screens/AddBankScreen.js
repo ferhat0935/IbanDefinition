@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput, Text, Pressable, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
 const AddBankScreen = ({ navigation, route }) => {
-  const [iban, setIban] = useState('TR');
-  const [bankName, setBankName] = useState('');
-  const [accountName, setAccountName] = useState('');
+  // Ensure route is correctly passed as a prop
+  const [iban, setIban] = useState(route.params?.iban || 'TR');
+  const [bankName, setBankName] = useState(route.params?.bankName || '');
+  const [accountName, setAccountName] = useState(route.params?.accountName || '');
   const activeTab = route.params?.activeTab || 'personal';
+
+  useEffect(() => {
+    // If editing, set the initial values from route params
+    if (route.params?.iban) setIban(route.params.iban);
+    if (route.params?.bankName) setBankName(route.params.bankName);
+    if (route.params?.accountName) setAccountName(route.params.accountName);
+  }, [route.params]);
 
   const isValidIban = (iban) => {
     const cleanIban = iban.replace(/\s/g, '');
@@ -16,6 +24,7 @@ const AddBankScreen = ({ navigation, route }) => {
   };
 
   const handleSave = async () => {
+    // Tüm alanların dolu olup olmadığını kontrol et
     if (!bankName || !iban || !accountName) {
       Alert.alert("Hata", "Tüm alanları doldurunuz.");
       return;
@@ -24,25 +33,36 @@ const AddBankScreen = ({ navigation, route }) => {
       Alert.alert("Hata", "Geçersiz IBAN formatı. TR ile başlayan 26 karakterli bir IBAN giriniz.");
       return;
     }
-
+  
     try {
+      // AsyncStorage'dan mevcut banka verilerini çek
       const savedBanks = await AsyncStorage.getItem('banks');
       const banks = savedBanks ? JSON.parse(savedBanks) : {};
       const currentBanks = banks[activeTab] || [];
-      
-      currentBanks.push({ bankName, iban, accountName });
+  
+      // Düzenleme modunda mı kontrol et
+      if (route.params?.editIndex !== undefined) {
+        // Mevcut banka hesabını güncelle
+        currentBanks[route.params.editIndex] = { bankName, iban, accountName };
+      } else {
+        // Yeni bir banka hesabı ekle
+        currentBanks.push({ bankName, iban, accountName });
+      }
+  
+      // Güncellenmiş verileri AsyncStorage'a kaydet
       banks[activeTab] = currentBanks;
-      
       await AsyncStorage.setItem('banks', JSON.stringify(banks));
-      
-      // Call the refresh callback before navigating back
+  
+      // Kayıt sonrası geri bildirim fonksiyonunu çağır
       if (route.params?.onSaveComplete) {
         route.params.onSaveComplete();
       }
-      
+  
+      // Önceki ekrana dön
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving bank:', error);
+      console.error('Banka kaydetme hatası:', error);
+      Alert.alert("Hata", "Bir hata oluştu. Lütfen tekrar deneyin.");
     }
   };
 

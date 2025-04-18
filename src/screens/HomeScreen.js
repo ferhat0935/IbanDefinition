@@ -5,8 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBankFromIban } from '../utils/bankCodes';
+
 const HomeScreen = () => {
-   const navigation = useNavigation();
+  const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [iban, setIban] = useState('');
   const [bankName, setBankName] = useState('');
@@ -30,91 +31,58 @@ const HomeScreen = () => {
   }, []);
 
   // Load Saved Banks from AsyncStorage
- // Verileri yükleme
-const loadSavedBanks = async () => {
-  try {
-    const savedBanks = await AsyncStorage.getItem('banks');
-    if (savedBanks) setBanks(JSON.parse(savedBanks));
-  } catch (error) {
-    console.error('Error loading banks:', error);
-  }
-};
-const handleEditCategory = () => {
-  if (!activeTab || activeTab.toLowerCase() === 'tümü') {
-    Alert.alert("Uyarı", "Bu kategori düzenlenemez.");
-    return;
-  }
-  setNewCategory(activeTab);
-  setCategoryModalVisible(true);
-};
-
-const handleAddCategory = async () => {
-  if (!newCategory.trim()) return;
-
-  try {
-    // Check if category already exists
-    if (categories.includes(newCategory.toLowerCase())) {
-      Alert.alert("Hata", "Bu kategori zaten mevcut.");
+  const loadSavedBanks = async () => {
+    try {
+      const savedBanks = await AsyncStorage.getItem('banks');
+      if (savedBanks) setBanks(JSON.parse(savedBanks));
+    } catch (error) {
+      console.error('Error loading banks:', error);
+    }
+  };
+  
+  const handleEditCategory = () => {
+    if (!activeTab || activeTab.toLowerCase() === 'tümü') {
+      Alert.alert("Uyarı", "Bu kategori düzenlenemez.");
       return;
     }
+    setNewCategory(activeTab);
+    setCategoryModalVisible(true);
+  };
 
-    // Add new category to the list
-    const updatedCategories = [...categories, newCategory.toLowerCase()];
-    await AsyncStorage.setItem('categories', JSON.stringify(updatedCategories));
-    setCategories(updatedCategories);
 
-    // Initialize empty array for new category in banks object
-    const updatedBanks = { ...banks };
-    updatedBanks[newCategory.toLowerCase()] = [];
-    setBanks(updatedBanks);
-    await AsyncStorage.setItem('banks', JSON.stringify(updatedBanks));
 
-    // Switch to the newly created category
-    setActiveTab(newCategory.toLowerCase());
+  const handleSaveCategory = async () => {
+    if (!newCategory.trim()) return;
 
-    // Clear new category input and close modal
-    setNewCategory('');
-    setCategoryModalVisible(false);
-  } catch (error) {
-    console.error('Error adding category:', error);
-  }
-};
+    try {
+      // Check if category already exists
+      if (categories.includes(newCategory.toLowerCase())) {
+        Alert.alert("Hata", "Bu kategori zaten mevcut.");
+        return;
+      }
 
-const handleSaveCategory = async () => {
-  if (!newCategory.trim() || activeTab.toLowerCase() === 'tümü') return;
+      // Add new category to the list
+      const updatedCategories = [...categories, newCategory.toLowerCase()];
+      await AsyncStorage.setItem('categories', JSON.stringify(updatedCategories));
+      setCategories(updatedCategories);
 
-  try {
-    // Update the existing category
-    const updatedCategories = categories.map((category) =>
-      category === activeTab ? newCategory.toLowerCase() : category
-    );
-    await AsyncStorage.setItem('categories', JSON.stringify(updatedCategories));
-    setCategories(updatedCategories);
+      // Initialize empty array for new category in banks object
+      const updatedBanks = { ...banks };
+      updatedBanks[newCategory.toLowerCase()] = [];
+      setBanks(updatedBanks);
+      await AsyncStorage.setItem('banks', JSON.stringify(updatedBanks));
 
-    // Update banks object with the new category name
-    const updatedBanks = { ...banks };
-    if (updatedBanks[activeTab]) {
-      updatedBanks[newCategory.toLowerCase()] = updatedBanks[activeTab];
-      delete updatedBanks[activeTab];
+      // Switch to the newly created category
+      setActiveTab(newCategory.toLowerCase());
+
+      // Clear new category input and close modal
+      setNewCategory('');
+      setCategoryModalVisible(false);
+    } catch (error) {
+      console.error('Error adding category:', error);
     }
-    setBanks(updatedBanks);
-    await AsyncStorage.setItem('banks', JSON.stringify(updatedBanks));
+  };
 
-    // Switch to the updated category
-    setActiveTab(newCategory.toLowerCase());
-
-    // Clear new category input and close modal
-    setNewCategory('');
-    setCategoryModalVisible(false);
-  } catch (error) {
-    console.error('Error updating category:', error);
-  }
-};
-
-// Component mount edildiğinde verileri yükle
-useEffect(() => {
-  loadSavedBanks();
-}, []);
   // Load Categories from AsyncStorage
   const loadCategories = async () => {
     try {
@@ -132,16 +100,12 @@ useEffect(() => {
     return ibanRegex.test(cleanIban);
   };
 
-  // Handle Saving a Bank Account
-
-
   // Handle Copying an IBAN
   const handleCopyIban = async (iban) => {
-    // await AsyncStorage.clear();
-
     await Clipboard.setString(iban);
     Alert.alert("Kopyalandı");
   };
+  
   const handleShare = async (bankInfo) => {
     try {
       await Share.share({
@@ -149,6 +113,26 @@ useEffect(() => {
       });
     } catch (error) {
       Alert.alert('Hata', 'Paylaşım sırasında bir hata oluştu');
+    }
+  };
+  
+  // Handle Deleting a Bank Account
+  const handleDeleteBank = async (index) => {
+    try {
+      const updatedBanks = { ...banks }; // Copy current banks
+      const currentBanks = updatedBanks[activeTab] || []; // Get banks for active tab
+      const newBanks = currentBanks.filter((_, i) => i !== index); // Filter out the one to delete
+      updatedBanks[activeTab] = newBanks; // Update the banks list
+
+      setBanks(updatedBanks); // Update state
+      await AsyncStorage.setItem('banks', JSON.stringify(updatedBanks)); // Save to storage
+      
+      // Safely close rows if ref exists
+      if (listViewRef.current && listViewRef.current.closeAllRows) {
+        listViewRef.current.closeAllRows();
+      }
+    } catch (error) {
+      console.error('Error deleting bank:', error);
     }
   };
   
@@ -161,39 +145,39 @@ useEffect(() => {
           <Text style={styles.bankLabelText}>{bankInfo?.name || data.item.bankName}</Text>
         </View>
         <View style={styles.cardHeader}>
-  <View style={styles.nameContainer}>
-    {bankInfo?.logo && (
-      <View style={styles.bankLogo}>
-        <Image 
-          source={bankInfo.logo} 
-          style={{
-            width: '100%',
-            height: '100%',
-            resizeMode: 'contain'
-          }}
-        />
-      </View>
-    )}
-    <View style={styles.accountInfo}>
-      <Text style={styles.accountName}>{data.item.accountName}</Text>
-      <Text style={styles.iban}>{data.item.iban}</Text>
-    </View>
-  </View>
-  <View style={styles.actionButtons}>
-    <TouchableOpacity 
-      style={styles.actionButton} 
-      onPress={() => handleCopyIban(data.item.iban)}
-    >
-      <Ionicons name="copy-outline" size={24} color="white" />
-    </TouchableOpacity>
-    <TouchableOpacity 
-      style={styles.actionButton} 
-      onPress={() => handleShare(data.item)}
-    >
-      <Ionicons name="share-social-outline" size={24} color="white" />
-    </TouchableOpacity>
-  </View>
-</View>
+          <View style={styles.nameContainer}>
+            {bankInfo?.logo && (
+              <View style={styles.bankLogo}>
+                <Image 
+                  source={bankInfo.logo} 
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    resizeMode: 'contain'
+                  }}
+                />
+              </View>
+            )}
+            <View style={styles.accountInfo}>
+              <Text style={styles.accountName}>{data.item.accountName}</Text>
+              <Text style={styles.iban}>{data.item.iban}</Text>
+            </View>
+          </View>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => handleCopyIban(data.item.iban)}
+            >
+              <Ionicons name="copy-outline" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => handleShare(data.item)}
+            >
+              <Ionicons name="share-social-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   };
@@ -211,28 +195,20 @@ useEffect(() => {
               {
                 text: "Düzenle",
                 onPress: () => {
-                  setBankName(data.item.bankName);
-                  setIban(data.item.iban);
-                  setEditIndex(data.index);
-                  setModalVisible(true);
+                  // Navigate to AddBankScreen with pre-filled data
+                  navigation.navigate('AddBank', {
+                    accountName: data.item.accountName,
+                    bankName: data.item.bankName,
+                    iban: data.item.iban,
+                    editIndex: data.index,
+                    activeTab,
+                    onSaveComplete: loadSavedBanks
+                  });
                 },
               },
               {
                 text: "Sil",
-                onPress: async () => {
-                  const currentBanks = activeTab === 'personal' ? personalBanks : businessBanks;
-                  const newBanks = currentBanks.filter((_, index) => index !== data.index);
-                  const storageKey = activeTab === 'personal' ? 'personalBanks' : 'businessBanks';
-                  const setState = activeTab === 'personal' ? setPersonalBanks : setBusinessBanks;
-
-                  try {
-                    setState(newBanks);
-                    await AsyncStorage.setItem(storageKey, JSON.stringify(newBanks));
-                    if (listViewRef.current) listViewRef.current.closeAllRows();
-                  } catch (error) {
-                    console.error('Error deleting bank:', error);
-                  }
-                },
+                onPress: () => handleDeleteBank(data.index),
                 style: 'destructive',
               },
               { text: "İptal", style: 'cancel' },
@@ -243,28 +219,13 @@ useEffect(() => {
         <Ionicons name="ellipsis-vertical" size={24} color="white" />
       </TouchableOpacity>
       <TouchableOpacity
-      style={styles.deleteButton}
-      onPress={async () => {
-        try {
-          const updatedBanks = { ...banks }; // Mevcut bankaları kopyala
-          const currentBanks = updatedBanks[activeTab] || []; // Aktif kategorinin bankalarını al
-          const newBanks = currentBanks.filter((_, index) => index !== data.index); // Silinecek hesabı çıkar
-          updatedBanks[activeTab] = newBanks; // Güncellenen listeyi ata
-
-          setBanks(updatedBanks); // State'i güncelle
-          await AsyncStorage.setItem('banks', JSON.stringify(updatedBanks)); // Veriyi kaydet
-          if (listViewRef.current) listViewRef.current.closeAllRows(); // Swipe'ı kapat
-        } catch (error) {
-          console.error('Error deleting bank:', error);
-        }
-      }}
-    >
-      <Ionicons name="trash-outline" size={24} color="white" />
-    </TouchableOpacity>
+        style={styles.deleteButton}
+        onPress={() => handleDeleteBank(data.index)}
+      >
+        <Ionicons name="trash-outline" size={24} color="white" />
+      </TouchableOpacity>
     </View>
   );
-
-  // Add a New Category
 
   const handleDeleteCategory = async () => {
     if (activeTab.toLowerCase() === 'tümü') {
@@ -272,7 +233,7 @@ useEffect(() => {
       return;
     }
   
-    if (categories.length <= 2) { // Changed from 1 to 2 because we always need "Tümü" + at least one category
+    if (categories.length <= 1) { // Changed from 1 to 2 because we always need "Tümü" + at least one category
       Alert.alert("Hata", "En az bir kategori bulunmalıdır.");
       return;
     }
@@ -303,53 +264,55 @@ useEffect(() => {
       ]
     );
   };
-const handleBankSearch = (text) => {
-  setBankName(text);
-  if (text.length > 0) {
-    // Tüm kategorilerdeki bankaları birleştir
-    const allBanks = Object.keys(banks).flatMap((category) =>
-      banks[category].map((bank) => ({ ...bank, category }))
-    );
 
-    // Arama yap
-    const filtered = allBanks.filter((bank) =>
-      bank.bankName.toLowerCase().includes(text.toLowerCase())
-    );
+  const handleBankSearch = (text) => {
+    setBankName(text);
+    if (text.length > 0) {
+      // Tüm kategorilerdeki bankaları birleştir
+      const allBanks = Object.keys(banks).flatMap((category) =>
+        banks[category].map((bank) => ({ ...bank, category }))
+      );
 
-    // Filtrelenmiş bankaları kategorilere göre grupla
-    const groupedFilteredBanks = filtered.reduce((acc, bank) => {
-      if (!acc[bank.category]) {
-        acc[bank.category] = [];
-      }
-      acc[bank.category].push(bank);
-      return acc;
-    }, {});
+      // Arama yap
+      const filtered = allBanks.filter((bank) =>
+        bank.bankName.toLowerCase().includes(text.toLowerCase())
+      );
 
-    setFilteredBanks(groupedFilteredBanks);
-  } else {
-    setFilteredBanks(null); // Arama metni boşsa filtreyi temizle
-  }
-};
-const renderBankList = (data, category) => (
-  <View key={category}>
-    <Text style={styles.categoryTitle}>{category.charAt(0).toUpperCase() + category.slice(1)}</Text>
-    {data.map((item, index) => (
-      <View key={index} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.nameContainer}>
-            <Text style={styles.accountName}>{item.accountName}</Text>
-            <Text style={styles.separator}>|</Text>
-            <Text style={styles.bankName}>{item.bankName}</Text>
+      // Filtrelenmiş bankaları kategorilere göre grupla
+      const groupedFilteredBanks = filtered.reduce((acc, bank) => {
+        if (!acc[bank.category]) {
+          acc[bank.category] = [];
+        }
+        acc[bank.category].push(bank);
+        return acc;
+      }, {});
+
+      setFilteredBanks(groupedFilteredBanks);
+    } else {
+      setFilteredBanks(null); // Arama metni boşsa filtreyi temizle
+    }
+  };
+
+  const renderBankList = (data, category) => (
+    <View key={category}>
+      <Text style={styles.categoryTitle}>{category.charAt(0).toUpperCase() + category.slice(1)}</Text>
+      {data.map((item, index) => (
+        <View key={index} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.nameContainer}>
+              <Text style={styles.accountName}>{item.accountName}</Text>
+              <Text style={styles.separator}>|</Text>
+              <Text style={styles.bankName}>{item.bankName}</Text>
+            </View>
+            <TouchableOpacity onPress={() => handleCopyIban(item.iban)}>
+              <Ionicons name="copy-outline" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => handleCopyIban(item.iban)}>
-            <Ionicons name="copy-outline" size={24} color="white" />
-          </TouchableOpacity>
+          <Text style={styles.iban}>{item.iban}</Text>
         </View>
-        <Text style={styles.iban}>{item.iban}</Text>
-      </View>
-    ))}
-  </View>
-);
+      ))}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -386,19 +349,16 @@ const renderBankList = (data, category) => (
       >
         {categories.map((category) => (
           <TouchableOpacity
-            key={category}
+            key={category} // Ensure each category is a unique string
             style={[styles.tabButton, activeTab === category && styles.activeTab]}
             onPress={() => setActiveTab(category)}
           >
             <Text style={[styles.tabText, activeTab === category && styles.activeTabText]}>
-              {category.charAt(0).toUpperCase() + category.slice(1)}
+              {typeof category === 'string' ? category.charAt(0).toUpperCase() + category.slice(1) : ''}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
-
- 
-
 
       {/* Swipe List */}
       {filteredBanks ? (
@@ -409,7 +369,7 @@ const renderBankList = (data, category) => (
         </ScrollView>
       ) : (
         <SwipeListView
-          ref={(ref) => (listViewRef.current = ref)}
+          ref={listViewRef}
           data={activeTab === 'tümü' 
             ? Object.values(banks).flat() 
             : banks[activeTab] || []}
@@ -426,48 +386,47 @@ const renderBankList = (data, category) => (
       )}
 
       {/* Floating Action Button Menu */}
-      // Replace the Floating Action Button Menu section
       {isMenuVisible && (
-  <TouchableWithoutFeedback onPress={() => setIsMenuVisible(false)}>
-    <View style={StyleSheet.absoluteFillObject}>
-      <View style={menuStyles.fabMenu}>
-        <TouchableOpacity
-          style={menuStyles.menuItem}
-          onPress={() => {
-            setIsMenuVisible(false);
-            setNewCategory('');
-            setCategoryModalVisible(true);
-          }}
-        >
-          <Ionicons name="folder-outline" size={24} color="white" />
-          <Text style={menuStyles.menuText}>Kategori Ekle</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={menuStyles.menuItem}
-          onPress={() => {
-            setIsMenuVisible(false);
-            handleEditCategory();
-          }}
-        >
-          <Ionicons name="create-outline" size={24} color="white" />
-          <Text style={menuStyles.menuText}>Kategori Düzenle</Text>
-        </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={() => setIsMenuVisible(false)}>
+          <View style={StyleSheet.absoluteFillObject}>
+            <View style={menuStyles.fabMenu}>
+              <TouchableOpacity
+                style={menuStyles.menuItem}
+                onPress={() => {
+                  setIsMenuVisible(false);
+                  setNewCategory('');
+                  setCategoryModalVisible(true);
+                }}
+              >
+                <Ionicons name="folder-outline" size={24} color="white" />
+                <Text style={menuStyles.menuText}>Kategori Ekle</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={menuStyles.menuItem}
+                onPress={() => {
+                  setIsMenuVisible(false);
+                  handleEditCategory();
+                }}
+              >
+                <Ionicons name="create-outline" size={24} color="white" />
+                <Text style={menuStyles.menuText}>Kategori Düzenle</Text>
+              </TouchableOpacity>
 
-        <TouchableOpacity
-          style={menuStyles.menuItem}
-          onPress={() => {
-            setIsMenuVisible(false);
-            handleDeleteCategory();
-          }}
-        >
-          <Ionicons name="trash-outline" size={24} color="white" />
-          <Text style={menuStyles.menuText}>Kategori Sil</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </TouchableWithoutFeedback>
-)}
+              <TouchableOpacity
+                style={menuStyles.menuItem}
+                onPress={() => {
+                  setIsMenuVisible(false);
+                  handleDeleteCategory();
+                }}
+              >
+                <Ionicons name="trash-outline" size={24} color="white" />
+                <Text style={menuStyles.menuText}>Kategori Sil</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      )}
 
       {/* Floating Action Button */}
       <TouchableOpacity
@@ -481,117 +440,69 @@ const renderBankList = (data, category) => (
       </TouchableOpacity>
 
       {/* Copy All Button */}
-     <TouchableOpacity
-  style={styles.copyAllButton}
-  onPress={async () => {
-    const currentBanks = activeTab === 'tümü'
-      ? Object.values(banks).flat()
-      : banks[activeTab] || [];
+      <TouchableOpacity
+        style={styles.copyAllButton}
+        onPress={async () => {
+          // await AsyncStorage.clear();
 
-    if (currentBanks.length > 0) {
-      const allIbans = currentBanks.map((bank) => 
-        `${bank.accountName}\nBanka: ${bank.bankName}\nIBAN: ${bank.iban}`
-      ).join('\n\n');
-      
-      await Clipboard.setString(allIbans);
-      Alert.alert("Kopyalandı", "Tüm hesaplar kopyalandı");
-    } else {
-      Alert.alert("Uyarı", "Kopyalanacak hesap bulunamadı");
-    }
-  }}
->
-  <Ionicons name="copy" size={24} color="white" />
-</TouchableOpacity>
+          const currentBanks = activeTab === 'tümü'
+            ? Object.values(banks).flat()
+            : banks[activeTab] || [];
 
+          if (currentBanks.length > 0) {
+            const allIbans = currentBanks.map((bank) => 
+              `${bank.accountName}\nBanka: ${bank.bankName}\nIBAN: ${bank.iban}`
+            ).join('\n\n');
+            await Clipboard.setString(allIbans);
+            Alert.alert("Kopyalandı", "Tüm hesaplar kopyalandı");
+          } else {
+            Alert.alert("Uyarı", "Kopyalanacak hesap bulunamadı");
+          }
+        }}
+      >
+        <Ionicons name="copy" size={24} color="white" />
+      </TouchableOpacity>
 
-      {/* Modals */}
-      {/* Add/Edit IBAN Modal */}
-      {/* <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+      {/* Add Category Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={categoryModalVisible}
+        onRequestClose={() => setCategoryModalVisible(false)} 
+      >
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>IBAN Ekle</Text>
+            <Text style={styles.modalTitle}>{activeTab === newCategory ? 'Kategori Düzenle' : 'Kategori Ekle'}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Hesap Adı"
+              placeholder="Kategori Adı"
               placeholderTextColor="#666"
-              value={accountName}
-              onChangeText={setAccountName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Banka Adı"
-              placeholderTextColor="#666"
-              value={bankName}
-              onChangeText={setBankName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="IBAN"
-              placeholderTextColor="#666"
-              value={iban}
-              onChangeText={(text) => {
-                let cleanText = text.replace(/[^A-Z0-9]/g, '');
-                if (cleanText.length >= 2 && cleanText.substring(0, 2) !== 'TR') cleanText = 'TR' + cleanText.substring(2);
-                let formattedIban = cleanText.replace(/(.{4})/g, '$1 ').trim();
-                setIban(formattedIban);
-              }}
-              maxLength={32}
-              autoCapitalize="characters"
+              value={newCategory}
+              onChangeText={setNewCategory}
             />
             <View style={styles.buttonContainer}>
-              <Pressable style={[styles.button, styles.buttonSave]} onPress={handleSave}>
+              <Pressable
+                style={[styles.button, styles.buttonSave]}
+                onPress={handleSaveCategory} // Ensure this is the correct function
+              >
                 <Text style={styles.textStyle}>Kaydet</Text>
               </Pressable>
-              <Pressable style={[styles.button, styles.buttonCancel]} onPress={() => setModalVisible(false)}>
+              <Pressable
+                style={[styles.button, styles.buttonCancel]}
+                onPress={() => setCategoryModalVisible(false)}
+              >
                 <Text style={styles.textStyle}>İptal</Text>
               </Pressable>
             </View>
           </View>
         </View>
-      </Modal> */}
-
-      {/* Add Category Modal */}
-      <Modal
-  animationType="slide"
-  transparent={true}
-  visible={categoryModalVisible}
-  onRequestClose={() => setCategoryModalVisible(false)} 
->
-  <View style={styles.centeredView}>
-    <View style={styles.modalView}>
-      <Text style={styles.modalTitle}>{activeTab === newCategory ? 'Kategori Düzenle' : 'Kategori Ekle'}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Kategori Adı"
-        placeholderTextColor="#666"
-        value={newCategory}
-        onChangeText={setNewCategory}
-      />
-      <View style={styles.buttonContainer}>
-        <Pressable
-          style={[styles.button, styles.buttonSave]}
-          onPress={handleSaveCategory}
-        >
-          <Text style={styles.textStyle}>Kaydet</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.button, styles.buttonCancel]}
-          onPress={() => setCategoryModalVisible(false)}
-        >
-          <Text style={styles.textStyle}>İptal</Text>
-        </Pressable>
-      </View>
-    </View>
-  </View>
-</Modal>
-
+      </Modal>
     </View>
   );
 };
 
 // Styles
-const menuStyles = {
- 
+const menuStyles = StyleSheet.create({
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -620,10 +531,20 @@ const menuStyles = {
     marginLeft: 10,
     fontSize: 16,
   },
-};
+});
 
 // Update these styles in the StyleSheet
 const styles = StyleSheet.create({
+  categoryTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 10,
+  },
+  separator: {
+    color: '#ccc',
+    marginHorizontal: 8,
+  },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -652,14 +573,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
-  //search
   bankLogo: {
     width: 50,
     height: 50,
     borderRadius: 25,
     marginRight: 15,
-    backgroundColor: '#444', // Background for the circle
-    overflow: 'hidden', // Ensure the image doesn't overflow
+    backgroundColor: '#444',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -678,19 +598,18 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 8,  // increased from 4
+    marginBottom: 8,
   },
   bankName: {
     color: '#ccc',
     fontSize: 14,
-    marginBottom: 8,  // increased from 4
+    marginBottom: 8,
   },
   iban: {
     color: '#ccc',
     fontSize: 14,
     letterSpacing: 1,
   },
-  
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -714,29 +633,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
   },
   headerContainer: {
-    flexDirection: 'row', // Yatay hizalama
-    alignItems: 'center', // Dikeyde ortala
-    justifyContent: 'space-between', // Başlık ve buton arasında boşluk bırak
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: 70,
     paddingBottom: 20,
-    paddingHorizontal: 20, // Kenarlardan boşluk
-    backgroundColor: '#111', // Başlık arka plan rengi
+    paddingHorizontal: 20,
+    backgroundColor: '#111',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
-   editButtton: {
-    padding: 8, // Buton etrafında boşluk
-    borderRadius: 20, // Yuvarlak köşe
-    backgroundColor: '#FF3B30', // Kırmızı arka plan
-
+  editButtton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#FF3B30',
   },
   headerTitle: {
     color: 'white',
-    fontSize: 28,  // increased from 24
+    fontSize: 28,
     fontWeight: 'bold',
     textAlignVertical: 'center',
-    marginBottom: 5,  // added spacing
-    paddingTop: 5,  // added spacing
+    marginBottom: 5,
+    paddingTop: 5,
   },
   tabsScrollView: {
     maxHeight: 60,
@@ -748,24 +666,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   tabButton: {
-    paddingVertical: 12,  // increased from 10
-    paddingHorizontal: 25,  // increased from 20
-    borderRadius: 12,  // increased from 10
-    marginHorizontal: 8,  // increased from 5
-    backgroundColor: '#222',  // added background for inactive tabs
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    marginHorizontal: 8,
+    backgroundColor: '#222',
   },
   tabText: {
     color: '#ccc',
-    fontSize: 18,  // increased from 16
+    fontSize: 18,
     fontWeight: 'bold',
   },
   activeTab: {
     backgroundColor: '#FF3B30',
-  },
-  tabText: {
-    color: '#ccc',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   activeTabText: {
     color: 'white',
@@ -786,42 +699,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     position: 'relative',
-    marginTop: 15, // Kartlar arasında boşluk
+    marginTop: 15,
   },
-
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-    paddingRight: 5, // Kopyala butonu için yer aç
-  },
-
-  nameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10, // İçerik ile kopyala butonu arasına boşluk
-  },
-
-
-
-  accountInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-
-  accountName: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-
-  iban: {
-    color: '#ccc',
-    fontSize: 14,
-    letterSpacing: 1,
+    paddingRight: 5,
   },
   fab: {
     position: 'absolute',
@@ -917,11 +802,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderRadius: 15,
     marginTop: 15,
-    height: 100, // Adjusted to match card height
+    height: 85,
     position: 'absolute',
-    left: 20, // Match card's padding
-    right: 20, // Match card's padding
-    zIndex: -1, // Ensure it stays behind the card
+    left: 20,
+    right: 20,
+    zIndex: -1,
   },
   moreButton: {
     alignItems: 'center',
